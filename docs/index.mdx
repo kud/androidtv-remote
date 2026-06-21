@@ -1,35 +1,21 @@
-<div align="center">
+---
+title: "androidtv-remote"
+description: "Control Android TV / Google TV devices over the Android TV Remote v2 protocol"
+---
 
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=node.js&logoColor=white)
-![npm](https://img.shields.io/npm/v/@kud/androidtv-remote?style=flat-square&color=CB3837)
-![MIT](https://img.shields.io/badge/licence-MIT-22C55E?style=flat-square)
+## 🚀 Getting started
 
-**Control Android TV / Google TV devices over the Android TV Remote v2 protocol**
-
-[Features](#-features) • [Quick Start](#-quick-start) • [API Reference](#-api-reference) • [Development](#-development)
-
-</div>
-
-A modern TypeScript/ESM implementation of the Android TV Remote v2 protocol — pair with a device over TLS, then send keys, launch apps, and inject text directly from Node.
-
-## 🌟 Features
-
-- 🔑 **First-class pairing** — handles the full certificate-based TLS pairing flow and persists credentials for reconnect
-- ⌨️ **Native text input** — `sendText()` uses IME injection to type arbitrary strings, no keycode mapping required
-- 📺 **Full key control** — send any Android key via `RemoteKeyCode` constants (navigation, media, DPAD, volume, and more)
-- 📡 **State events** — subscribe to `powered`, `volume`, `current_app`, and `unpaired` with typed payloads
-- 🪶 **Lean dependencies** — `crypto-js`, `systeminformation`, and `core-js` dropped; relies only on `node-forge` and `protobufjs`
-- 🔇 **Silent by default** — all internal logging is suppressed unless `debug: true` is set, so it fits cleanly inside a larger application
-- 🏷️ **Typed API** — full TypeScript types exported; `on()`, `once()`, and `emit()` are all narrowed to the event map
-
-## 🚀 Quick Start
+Install via npm:
 
 ```sh
 npm install @kud/androidtv-remote
 ```
 
+Requires Node.js ≥ 22. The library is a modern TypeScript/ESM implementation of the Android TV Remote v2 protocol, with full types exported.
+
 ### Pair a new device
+
+On first connection, the TV displays a pairing PIN. Submit it with `sendCode()` and persist the certificate so you can skip pairing next time.
 
 ```js
 import { createAndroidRemote } from "@kud/androidtv-remote"
@@ -54,6 +40,8 @@ const cert = remote.getCertificate()
 
 ### Reconnect with a saved certificate
 
+Pass the previously saved `{ key, cert }` pair to skip pairing entirely.
+
 ```js
 import { createAndroidRemote } from "@kud/androidtv-remote"
 
@@ -68,7 +56,17 @@ remote.on("ready", () => {
 await remote.start()
 ```
 
-## 📖 API Reference
+## ✨ Features
+
+- **First-class pairing** — handles the full certificate-based TLS pairing flow and persists credentials for reconnect.
+- **Native text input** — `sendText()` uses IME injection to type arbitrary strings, no keycode mapping required.
+- **Full key control** — send any Android key via `RemoteKeyCode` constants (navigation, media, DPAD, volume, and more).
+- **State events** — subscribe to `powered`, `volume`, `current_app`, and `unpaired` with typed payloads.
+- **Lean dependencies** — relies only on `node-forge` and `protobufjs`.
+- **Silent by default** — internal logging is suppressed unless `debug: true` is set, so it fits cleanly inside a larger application.
+- **Typed API** — full TypeScript types exported; `on()`, `once()`, and `emit()` are all narrowed to the event map.
+
+## 📖 API reference
 
 ### `createAndroidRemote(host, options?)`
 
@@ -153,58 +151,16 @@ import { setDebug } from "@kud/androidtv-remote"
 setDebug(true)
 ```
 
-## 🔧 Development
-
-```
-androidtv-remote/
-├── src/
-│   ├── index.ts                        # Public API and factory
-│   ├── types.ts                        # Shared TypeScript types
-│   ├── device-info.ts                  # Device metadata sent during pairing
-│   ├── logger.ts                       # Debug-gated logger
-│   ├── certificate/
-│   │   └── certificate-generator.ts   # TLS cert generation via node-forge
-│   ├── pairing/
-│   │   ├── pairing-manager.ts         # Pairing session state machine
-│   │   ├── pairing-message-manager.ts
-│   │   └── pairingmessage.proto
-│   └── remote/
-│       ├── remote-manager.ts          # Remote control session
-│       ├── remote-message-manager.ts  # Key/text encoding
-│       └── remotemessage.proto
-└── dist/                              # Compiled output (tsup)
-```
+## 🛠️ Development
 
 ```sh
 git clone https://github.com/kud/androidtv-remote.git
 cd androidtv-remote
 npm install
-npm run build
+npm run build        # compile to dist/ via tsup
+npm run build:watch  # recompile on file changes
+npm run typecheck    # type-check without emitting
+npm test             # run tests with tsx
 ```
 
-### Scripts
-
-| Script                | Description                            |
-| --------------------- | -------------------------------------- |
-| `npm run build`       | Compile TypeScript to `dist/` via tsup |
-| `npm run build:watch` | Recompile on file changes              |
-| `npm run typecheck`   | Type-check without emitting            |
-| `npm test`            | Run tests with tsx                     |
-| `npm run clean`       | Remove `dist/`                         |
-
-## 🏗 Tech Stack
-
-| Package      | Role                                                |
-| ------------ | --------------------------------------------------- |
-| `node-forge` | TLS certificate generation and mutual TLS           |
-| `protobufjs` | Encode/decode Android TV Remote v2 protocol buffers |
-| `tsup`       | Zero-config TypeScript bundler                      |
-| `tsx`        | TypeScript test runner                              |
-
-## Credits
-
-Derived from [androidtv-remote](https://github.com/louis49/androidtv-remote) by [louis49](https://github.com/louis49) (MIT). The reverse-engineered Android TV Remote v2 protocol and `.proto` schemas originate from that project. This library is a TypeScript rewrite with a functional API, native text input support, and a leaner dependency footprint.
-
----
-
-MIT © [kud](https://github.com/kud)
+This library is a TypeScript rewrite of [androidtv-remote](https://github.com/louis49/androidtv-remote) by [louis49](https://github.com/louis49) (MIT), with a functional API, native text input support, and a leaner dependency footprint.
