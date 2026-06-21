@@ -1,0 +1,60 @@
+{
+  "name": "@kud/androidtv-remote",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Control Android TV / Google TV devices over the Android TV Remote v2 protocol",
+  "keywords": [
+    "android-tv",
+    "google-tv",
+    "androidtvremote2",
+    "remote-control",
+    "protobuf",
+    "tls"
+  ],
+  "license": "MIT",
+  "author": "Erwann Mest <m@kud.io>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kud/androidtv-remote.git"
+  },
+  "homepage": "https://github.com/kud/androidtv-remote#readme",
+  "bugs": {
+    "url": "https://github.com/kud/androidtv-remote/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "build:watch": "tsup --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "node-forge": "^1.3.1",
+    "protobufjs": "^7.4.0"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.2.2",
+    "@types/node": "^25.5.0",
+    "@types/node-forge": "^1.3.11",
+    "crypto-js": "^4.2.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
