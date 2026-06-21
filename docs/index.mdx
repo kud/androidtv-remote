@@ -1,166 +1,54 @@
 ---
 title: 👋 Introduction
-description: "Control Android TV / Google TV devices over the Android TV Remote v2 protocol"
+description: "Control Android TV / Google TV devices over the Android TV Remote v2 protocol (TypeScript)"
 ---
 
-## 🚀 Getting started
+**@kud/androidtv-remote** is a modern TypeScript/ESM implementation of the
+Android TV Remote v2 protocol. Pair with a device over TLS, then send keys,
+launch apps, and inject text straight from Node — with a typed event API and lean
+dependencies.
 
-Install via npm:
+## 🔐 The pairing-then-reconnect model
+
+The protocol is certificate-based, and that shapes the whole API:
+
+- **First run** — `start()` runs the TLS pairing flow; the TV shows a PIN, you
+  submit it with `sendCode()`, and on `ready` you call `getCertificate()` to keep
+  the credentials.
+- **Every run after** — construct with the saved `cert` and you reconnect
+  silently, no PIN. Subscribe to typed events (`powered`, `volume`,
+  `current_app`, `unpaired`) to track device state.
+
+Internal logging stays silent unless you pass `debug: true`, so it sits cleanly
+inside a larger app.
+
+## 📦 Install
 
 ```sh
 npm install @kud/androidtv-remote
 ```
 
-Requires Node.js ≥ 22. The library is a modern TypeScript/ESM implementation of the Android TV Remote v2 protocol, with full types exported.
+## 🚀 Quick start
 
-### Pair a new device
-
-On first connection, the TV displays a pairing PIN. Submit it with `sendCode()` and persist the certificate so you can skip pairing next time.
+Pair a new device, then persist the certificate for next time:
 
 ```js
-import { createAndroidRemote } from "@kud/androidtv-remote"
+import { createAndroidRemote } from "@kud/androidtv-remote";
 
-const remote = createAndroidRemote("192.168.1.42")
+const remote = createAndroidRemote("192.168.1.42");
 
-remote.on("secret", () => {
-  // The TV shows a pairing PIN — read it from stdin and submit
-  remote.sendCode("123456")
-})
+remote.on("secret", () => remote.sendCode("123456")); // PIN shown on the TV
+remote.on("ready", () => remote.sendPower());
 
-remote.on("ready", () => {
-  console.log("paired and connected")
-  remote.sendPower()
-})
+await remote.start();
 
-await remote.start()
-
-// Persist the certificate so you skip pairing next time
-const cert = remote.getCertificate()
+const cert = remote.getCertificate(); // save key + cert to reconnect without pairing
 ```
 
-### Reconnect with a saved certificate
-
-Pass the previously saved `{ key, cert }` pair to skip pairing entirely.
+Reconnect later by passing the saved certificate:
 
 ```js
-import { createAndroidRemote } from "@kud/androidtv-remote"
-
 const remote = createAndroidRemote("192.168.1.42", {
   cert: { key: savedKey, cert: savedCert },
-})
-
-remote.on("ready", () => {
-  remote.sendText("Hello, TV!")
-})
-
-await remote.start()
+});
 ```
-
-## ✨ Features
-
-- **First-class pairing** — handles the full certificate-based TLS pairing flow and persists credentials for reconnect.
-- **Native text input** — `sendText()` uses IME injection to type arbitrary strings, no keycode mapping required.
-- **Full key control** — send any Android key via `RemoteKeyCode` constants (navigation, media, DPAD, volume, and more).
-- **State events** — subscribe to `powered`, `volume`, `current_app`, and `unpaired` with typed payloads.
-- **Lean dependencies** — relies only on `node-forge` and `protobufjs`.
-- **Silent by default** — internal logging is suppressed unless `debug: true` is set, so it fits cleanly inside a larger application.
-- **Typed API** — full TypeScript types exported; `on()`, `once()`, and `emit()` are all narrowed to the event map.
-
-## 📖 API reference
-
-### `createAndroidRemote(host, options?)`
-
-Factory function that returns an `AndroidRemote` instance — an `EventEmitter` extended with control methods.
-
-```ts
-import { createAndroidRemote } from "@kud/androidtv-remote"
-
-const remote = createAndroidRemote("192.168.1.42", options)
-```
-
-#### Options
-
-| Option         | Type                            | Default              | Description                                                   |
-| -------------- | ------------------------------- | -------------------- | ------------------------------------------------------------- |
-| `cert`         | `{ key: string; cert: string }` | —                    | Previously obtained certificate. Skips pairing when provided. |
-| `pairing_port` | `number`                        | `6467`               | TCP port for the pairing handshake.                           |
-| `remote_port`  | `number`                        | `6466`               | TCP port for the remote control session.                      |
-| `service_name` | `string`                        | `"androidtv-remote"` | Name sent to the TV during pairing.                           |
-| `manufacturer` | `string`                        | —                    | Device manufacturer reported during pairing.                  |
-| `model`        | `string`                        | —                    | Device model reported during pairing.                         |
-| `debug`        | `boolean`                       | `false`              | Enable verbose internal logging.                              |
-
-### Methods
-
-| Method                         | Returns            | Description                                                   |
-| ------------------------------ | ------------------ | ------------------------------------------------------------- |
-| `start()`                      | `Promise<boolean>` | Connect to the TV. Triggers pairing if no certificate is set. |
-| `sendCode(code)`               | `boolean`          | Submit the PIN displayed on the TV during pairing.            |
-| `sendKey(keyCode, direction?)` | `void`             | Send a key press. Use `RemoteKeyCode` constants.              |
-| `sendPower()`                  | `void`             | Toggle the TV power state.                                    |
-| `sendAppLink(link)`            | `void`             | Launch an app via its deep-link URI.                          |
-| `sendText(text)`               | `void`             | Inject arbitrary text via IME (no keycode mapping).           |
-| `getCertificate()`             | `Certificate`      | Return the current `{ key, cert }` pair for persistence.      |
-| `stop()`                       | `void`             | Close all connections.                                        |
-
-### Events
-
-| Event         | Payload                                              | Fired when                                          |
-| ------------- | ---------------------------------------------------- | --------------------------------------------------- |
-| `secret`      | —                                                    | The TV is showing a pairing PIN. Call `sendCode()`. |
-| `ready`       | —                                                    | Connected and ready for commands.                   |
-| `powered`     | `boolean`                                            | TV power state changed.                             |
-| `volume`      | `{ level: number; maximum: number; muted: boolean }` | Volume state changed.                               |
-| `current_app` | `string`                                             | Foreground app changed (package name).              |
-| `unpaired`    | —                                                    | The TV rejected or revoked the certificate.         |
-| `error`       | `Error`                                              | A protocol-level error occurred.                    |
-
-### `RemoteKeyCode`
-
-An enum of Android key codes. Common entries:
-
-```ts
-import { RemoteKeyCode } from "@kud/androidtv-remote"
-
-remote.sendKey(RemoteKeyCode.KEYCODE_HOME)
-remote.sendKey(RemoteKeyCode.KEYCODE_BACK)
-remote.sendKey(RemoteKeyCode.KEYCODE_DPAD_UP)
-remote.sendKey(RemoteKeyCode.KEYCODE_MEDIA_PLAY_PAUSE)
-remote.sendKey(RemoteKeyCode.KEYCODE_VOLUME_UP)
-```
-
-### `RemoteDirection`
-
-Direction constants for `sendKey()` — defaults to `SHORT` (a normal press). Use `START_LONG` / `END_LONG` to bracket a long press:
-
-```ts
-import { RemoteKeyCode, RemoteDirection } from "@kud/androidtv-remote"
-
-remote.sendKey(RemoteKeyCode.KEYCODE_DPAD_UP) // SHORT by default
-remote.sendKey(RemoteKeyCode.KEYCODE_DPAD_DOWN, RemoteDirection.START_LONG)
-remote.sendKey(RemoteKeyCode.KEYCODE_DPAD_DOWN, RemoteDirection.END_LONG)
-```
-
-### `setDebug(enabled)`
-
-Enable or disable verbose logging globally (affects all instances):
-
-```ts
-import { setDebug } from "@kud/androidtv-remote"
-
-setDebug(true)
-```
-
-## 🛠️ Development
-
-```sh
-git clone https://github.com/kud/androidtv-remote.git
-cd androidtv-remote
-npm install
-npm run build        # compile to dist/ via tsup
-npm run build:watch  # recompile on file changes
-npm run typecheck    # type-check without emitting
-npm test             # run tests with tsx
-```
-
-This library is a TypeScript rewrite of [androidtv-remote](https://github.com/louis49/androidtv-remote) by [louis49](https://github.com/louis49) (MIT), with a functional API, native text input support, and a leaner dependency footprint.
