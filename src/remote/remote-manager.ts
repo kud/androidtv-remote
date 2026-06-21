@@ -48,6 +48,7 @@ const createRemoteManager = (
   let error: NodeJS.ErrnoException | null = null
   let imeCounter = 0
   let fieldCounter = 0
+  let stopped = false
 
   const start = (): Promise<boolean> =>
     new Promise((resolve, reject) => {
@@ -134,6 +135,8 @@ const createRemoteManager = (
 
       client.on("close", async (hasError) => {
         log.info(host + " Remote Connection closed ", hasError)
+        // An explicit stop() must not trigger the auto-reconnect ladder below.
+        if (stopped) return
         if (hasError) {
           reject(
             new Error(error?.code ?? "Remote connection closed with error"),
@@ -188,6 +191,7 @@ const createRemoteManager = (
   }
 
   const stop = (): void => {
+    stopped = true
     client?.destroy()
   }
 
