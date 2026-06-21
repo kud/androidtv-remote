@@ -46,7 +46,9 @@ const createAndroidRemote = (
   host: string,
   options: AndroidRemoteOptions = {},
 ): AndroidRemote => {
-  setDebug(options.debug ?? false)
+  // Only touch the global debug flag when explicitly set, so a process-wide
+  // setDebug(true) (e.g. a CLI --debug flag) isn't clobbered per instance.
+  if (options.debug !== undefined) setDebug(options.debug)
   setDeviceInfo({ manufacturer: options.manufacturer, model: options.model })
 
   const emitter = new EventEmitter()
@@ -99,7 +101,10 @@ const createAndroidRemote = (
   const sendAppLink = (link: string): void => remoteManager?.sendAppLink(link)
   const sendText = (text: string): void => remoteManager?.sendText(text)
   const getCertificate = (): Certificate => ({ key: cert.key, cert: cert.cert })
-  const stop = (): void => remoteManager?.stop()
+  const stop = (): void => {
+    pairingManager?.stop()
+    remoteManager?.stop()
+  }
 
   return Object.assign(emitter, {
     start,
@@ -113,7 +118,7 @@ const createAndroidRemote = (
   }) as AndroidRemote
 }
 
-export { createAndroidRemote, RemoteKeyCode, RemoteDirection }
+export { createAndroidRemote, setDebug, RemoteKeyCode, RemoteDirection }
 export type {
   AndroidRemote,
   AndroidRemoteOptions,

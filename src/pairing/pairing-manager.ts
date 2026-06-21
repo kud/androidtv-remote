@@ -17,6 +17,7 @@ interface PairingResponse {
 interface PairingManager extends EventEmitter {
   start(): Promise<boolean>
   sendCode(code: string): boolean
+  stop(): void
 }
 
 // Signed-byte hex parse, ported verbatim from upstream. Both the code and the
@@ -135,7 +136,11 @@ const createPairingManager = (
       })
     })
 
-  return Object.assign(emitter, { start, sendCode })
+  const stop = (): void => {
+    client?.destroy()
+  }
+
+  return Object.assign(emitter, { start, sendCode, stop })
 }
 
 export { createPairingManager }
