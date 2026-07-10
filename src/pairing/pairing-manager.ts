@@ -20,6 +20,22 @@ interface PairingManager extends EventEmitter {
   stop(): void
 }
 
+const wait = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms))
+
+// Transient connect-stage failures worth retrying: a dozing TV (Wi-Fi
+// power-save) drops off the network and reports these until it wakes. Anything
+// past a live TLS session — a wrong PIN, a rejected pairing — is terminal.
+const RETRYABLE_CONNECT_CODES = new Set([
+  "EHOSTUNREACH",
+  "EHOSTDOWN",
+  "ETIMEDOUT",
+  "ECONNREFUSED",
+  "ECONNRESET",
+])
+const MAX_CONNECT_ATTEMPTS = 5
+const RETRY_DELAY_MS = 1000
+
 // Signed-byte hex parse, ported verbatim from upstream. Both the code and the
 // digest run through this, so the >127 → negative conversion must stay exact.
 const hexStringToBytes = (q: string): number[] => {
@@ -75,13 +91,23 @@ const createPairingManager = (
     return true
   }
 
-  const start = (): Promise<boolean> =>
+  const connectOnce = (): Promise<boolean> =>
     new Promise((resolve, reject) => {
-      const options: tls.ConnectionOptions = {
+      chunks = Buffer.from([])
+      let sockError: NodeJS.ErrnoException | null = null
+      let secure = false
+
+      // `family` is a net-level lookup option that tls.connect forwards to the
+      // underlying socket; it isn't in tls.ConnectionOptions, so widen the type.
+      const options: tls.ConnectionOptions & { family?: number } = {
         key: certs.key,
         cert: certs.cert,
         port,
         host,
+        // Android TVs are reachable over IPv4 on the LAN. Pin the lookup to IPv4
+        // so a resolved hostname can't yield a scopeless IPv6 link-local address,
+        // which routes to loopback and fails EHOSTUNREACH under Happy Eyeballs.
+        family: 4,
         rejectUnauthorized: false,
       }
 
@@ -91,6 +117,7 @@ const createPairingManager = (
       })
 
       client.on("secureConnect", () => {
+        secure = true
         log.debug(host + " Pairing secure connected")
         client?.write(messages.createPairingRequest(serviceName))
       })
@@ -124,17 +151,49 @@ const createPairingManager = (
 
       client.on("close", (hasError) => {
         log.debug(host + " Pairing Connection closed", hasError)
-        if (hasError) {
-          reject(new Error("Pairing connection closed with error"))
-        } else {
+        if (!hasError) {
           resolve(true)
+          return
         }
+        // Retry only when the TLS session never came up — a transient network
+        // blink. Once `secure`, we're mid-protocol and any failure (wrong PIN,
+        // rejected pairing) must surface rather than silently reconnect.
+        const err = new Error("Pairing connection closed with error")
+        Object.assign(err, {
+          code: sockError?.code,
+          retryable:
+            !secure &&
+            sockError?.code !== undefined &&
+            RETRYABLE_CONNECT_CODES.has(sockError.code),
+        })
+        reject(err)
       })
 
       client.on("error", (error) => {
+        sockError = error as NodeJS.ErrnoException
         log.error(error)
       })
     })
+
+  // Ride out a dozing TV's power-save window: reconnect on transient connect
+  // failures before surfacing the friendly "could not connect" to the caller.
+  const start = async (): Promise<boolean> => {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await connectOnce()
+      } catch (error) {
+        const { retryable, code } = error as {
+          retryable?: boolean
+          code?: string
+        }
+        if (!retryable || attempt >= MAX_CONNECT_ATTEMPTS) throw error
+        log.debug(
+          `${host} Pairing connect failed (${code}); retry ${attempt}/${MAX_CONNECT_ATTEMPTS - 1} in ${RETRY_DELAY_MS}ms`,
+        )
+        await wait(RETRY_DELAY_MS)
+      }
+    }
+  }
 
   const stop = (): void => {
     client?.destroy()

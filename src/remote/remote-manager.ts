@@ -52,11 +52,16 @@ const createRemoteManager = (
 
   const start = (): Promise<boolean> =>
     new Promise((resolve, reject) => {
-      const options: tls.ConnectionOptions = {
+      // See pairing-manager: `family` is forwarded to the socket but absent from
+      // tls.ConnectionOptions, so widen the type to accept it.
+      const options: tls.ConnectionOptions & { family?: number } = {
         key: certs.key,
         cert: certs.cert,
         port,
         host,
+        // Pin to IPv4 for the same reason as pairing: avoid a scopeless IPv6
+        // link-local from a resolved hostname that can never route on the LAN.
+        family: 4,
         rejectUnauthorized: false,
       }
 
